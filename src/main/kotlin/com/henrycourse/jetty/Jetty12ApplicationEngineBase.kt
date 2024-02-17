@@ -39,14 +39,10 @@ open class Jetty12ApplicationEngineBase(
 
     private var cancellationDeferred: CompletableJob? = null
 
-    private val threadPool = QueuedThreadPool(Runtime.getRuntime().availableProcessors()).apply {
-        virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor()
-    }
-
     /**
      * Jetty server instance being configuring and starting
      */
-    protected val server: Server = Server(threadPool).apply {
+    protected val server: Server = Server().apply {
         configuration.configureServer(this)
         initializeServer(configuration)
     }

@@ -1,6 +1,6 @@
 package com.henrycourse.jetty
 
-import com.henrycourse.coroutines.LoomDispatcher
+import com.henrycourse.coroutines.loomLaunch
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationEnvironment
 import io.ktor.server.engine.DefaultUncaughtExceptionHandler
@@ -11,35 +11,30 @@ import io.ktor.util.pipeline.execute
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import org.eclipse.jetty.http.HttpStatus
 import org.eclipse.jetty.server.Handler
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
 import java.util.concurrent.CancellationException
-import kotlin.coroutines.CoroutineContext
 
 internal class Jetty12Handler(
     private val environment: ApplicationEnvironment,
     private val pipeline: EnginePipeline,
     private val applicationProvider: () -> Application
-) : Handler.Abstract(), CoroutineScope {
+) : Handler.Abstract() {
 
-    private val handlerJob = SupervisorJob(applicationProvider().parentCoroutineContext[Job])
-
-    override val coroutineContext: CoroutineContext
-        get() =
-        applicationProvider().parentCoroutineContext +
-                handlerJob +
-                DefaultUncaughtExceptionHandler(environment.log) +
-                LoomDispatcher
+    private val handlerScope = CoroutineScope(
+        SupervisorJob(applicationProvider().parentCoroutineContext[Job]) +
+                DefaultUncaughtExceptionHandler(environment.log)
+    )
 
     override fun destroy() {
         try {
             super.destroy()
         } finally {
-            handlerJob.cancel()
+            handlerScope.cancel()
         }
     }
 
@@ -48,9 +43,10 @@ internal class Jetty12Handler(
         response: Response,
         callback: Callback,
     ): Boolean {
+
         try {
 
-            launch(coroutineContext) {
+            handlerScope.loomLaunch {
 
                 val call = Jetty12ApplicationCall(applicationProvider(), request, response, coroutineContext)
 
@@ -80,6 +76,7 @@ internal class Jetty12Handler(
                     )
                 }
             }
+
         } catch (ex: Throwable) {
             environment.log.error("Application cannot fulfill the request", ex)
             Response.writeError(request, response, callback, HttpStatus.INTERNAL_SERVER_ERROR_500, ex.message, ex)

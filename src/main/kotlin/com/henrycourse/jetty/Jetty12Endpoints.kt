@@ -1,7 +1,7 @@
 package com.henrycourse.jetty
 
 
-import com.henrycourse.coroutines.LoomDispatcher
+import com.henrycourse.coroutines.launchLoomChannel
 import io.ktor.util.cio.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.pool.*
@@ -104,7 +104,7 @@ internal class Jetty12EndPointReader(
 internal fun CoroutineScope.endPointWriter(
     endPoint: EndPoint,
     pool: ObjectPool<ByteBuffer> = JettyWebSocketPool
-): ReaderJob = reader(EndpointWriterCoroutineName + LoomDispatcher, autoFlush = true) {
+): ReaderJob = launchLoomChannel(EndpointWriterCoroutineName) {
     pool.useInstance { buffer: ByteBuffer ->
         val source = channel
 
@@ -140,7 +140,7 @@ private fun CoroutineContext.executor(): Executor = object : Executor, Coroutine
     override val coroutineContext: CoroutineContext
         get() = this@executor
 
-    override fun execute(command: Runnable?) {
-        launch { command?.run() }
+    override fun execute(command: Runnable) {
+        launch { command.run() }
     }
 }

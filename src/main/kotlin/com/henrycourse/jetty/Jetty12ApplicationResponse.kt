@@ -1,6 +1,6 @@
 package com.henrycourse.jetty
 
-import com.henrycourse.coroutines.LoomDispatcher
+import com.henrycourse.coroutines.launchLoomChannel
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.server.application.PipelineCall
@@ -9,10 +9,10 @@ import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.ResponseHeaders
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.ReaderJob
-import io.ktor.utils.io.close
 import io.ktor.utils.io.pool.ByteBufferPool
 import io.ktor.utils.io.reader
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
@@ -31,13 +31,8 @@ class Jetty12ApplicationResponse(
 
     init {
         pipeline.intercept(ApplicationSendPipeline.Engine) {
-
-            if (responseJob.isInitialized()) {
-                responseJob.value.apply {
-                    channel.close()
-                    join()
-                }
-                return@intercept
+            responseJob.value.apply {
+                join()
             }
         }
     }
@@ -57,21 +52,18 @@ class Jetty12ApplicationResponse(
 
     private val responseJob: Lazy<ReaderJob> = lazy {
 
-        reader(LoomDispatcher, false) {
+        launchLoomChannel {
 
             val buffer = bufferPool.borrow()
 
 //            This looks weird but with vthreads you can block coroutine threads
-            fun writeRecursive() {
+            suspend fun writeRecursive() {
 
-                runBlocking {
-
-                    buffer.rewind()
-                    if (channel.readAvailable(buffer) > 0) {
-                        response.write(false, buffer.flip(), Callback.from { writeRecursive() })
-                    } else {
-                        response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
-                    }
+                buffer.rewind()
+                if (channel.readAvailable(buffer) > 0) {
+                    response.write(false, buffer.flip(), Callback.from { runBlocking { writeRecursive() } })
+                } else {
+                    response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
                 }
             }
 
@@ -81,7 +73,7 @@ class Jetty12ApplicationResponse(
 
     private val responseChannel = lazy { responseJob.value.channel }
 
-    override suspend fun responseChannel(): ByteWriteChannel =  responseChannel.value
+    override suspend fun responseChannel(): ByteWriteChannel = responseChannel.value
 
     override fun setStatus(statusCode: HttpStatusCode) {
         response.status = statusCode.value
