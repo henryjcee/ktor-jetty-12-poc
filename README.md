@@ -3,7 +3,8 @@
 I've spent long enough faffing around with reactive database drivers etc. and inspired
 by [this issue](https://youtrack.jetbrains.com/issue/KTOR-6734/Jetty-engine-Upgrade-Jetty-dependencies-to-the-latest-version-12)
 I have decided to build a POC that demonstrates virtual thread support in Ktor using Jetty 12. Most of this is code
-adapted from the existing Ktor Jetty engine but I've completely dropped servlet support which should be the fastest way to run Jetty.
+adapted from the existing Ktor Jetty engine but I've completely dropped servlet support which should be the fastest way
+to run Jetty.
 
 It should be pretty easy to use, add the dep and start a server like:
 
@@ -27,6 +28,14 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
 - The vthread dispatcher works but I have no idea if it's a good idea.
 - Java 21+ only
 - `initializeServer()` is a mess
+
+## Changelog
+
+### 0.0.2
+
+- Added a new dispatcher implementation that sends the termination token to the vthread task queue allowing it to be
+  cleaned up.
+- Few other minor tweaks
 
 ## Contributing
 
