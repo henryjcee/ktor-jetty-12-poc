@@ -37,6 +37,11 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
   cleaned up.
 - Few other minor tweaks
 
+### 0.0.3
+
+- No content response support
+- Implemented byte-array response support
+
 ## Contributing
 
 Please do contribute and I'm aiming to be responsive to any PRs as I am already addicted to calling blocking APIs

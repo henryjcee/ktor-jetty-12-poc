@@ -9,18 +9,16 @@ import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.ResponseHeaders
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.ReaderJob
-import io.ktor.utils.io.pool.ByteBufferPool
-import io.ktor.utils.io.reader
+import io.ktor.utils.io.close
+import io.ktor.utils.io.pool.DirectByteBufferPool
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
 import java.nio.ByteBuffer
 import kotlin.coroutines.CoroutineContext
 
-internal val bufferPool = ByteBufferPool()
-internal val emptyBuffer = ByteBuffer.allocate(0)
+internal val bufferPool = DirectByteBufferPool()
+internal val emptyBuffer = ByteBuffer.allocateDirect(0)
 
 class Jetty12ApplicationResponse(
     call: PipelineCall,
@@ -56,19 +54,24 @@ class Jetty12ApplicationResponse(
 
             val buffer = bufferPool.borrow()
 
-//            This looks weird but with vthreads you can block coroutine threads
-            suspend fun writeRecursive() {
-
-                buffer.rewind()
-                if (channel.readAvailable(buffer) > 0) {
-                    response.write(false, buffer.flip(), Callback.from { runBlocking { writeRecursive() } })
-                } else {
-                    response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
-                }
+            while (channel.readAvailable(buffer) > 0) {
+                response.write(false, buffer.flip(), Callback.from { buffer.rewind() })
             }
 
-            writeRecursive()
+            response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
         }
+    }
+
+    override suspend fun respondFromBytes(bytes: ByteArray) {
+        val buffer = bufferPool.borrow()
+        response.write(true, buffer.put(bytes).flip(), Callback.from {
+            responseJob.value.channel.close()
+            bufferPool.recycle(buffer)
+        })
+    }
+
+    override suspend fun respondNoContent(content: OutgoingContent.NoContent) {
+        response.write(true, emptyBuffer, Callback.NOOP)
     }
 
     private val responseChannel = lazy { responseJob.value.channel }
