@@ -17,7 +17,7 @@ class Jetty12ApplicationCall(
 ) : BaseApplicationCall(application) {
 
     override val request: BaseApplicationRequest = Jetty12ApplicationRequest(this, request)
-    override val response: Jetty12ApplicationResponse = Jetty12ApplicationResponse(this, response, managedByEngineHeaders, coroutineContext)
+    override val response: Jetty12ApplicationResponse = Jetty12ApplicationResponse(this, request, response, managedByEngineHeaders, coroutineContext)
 
     init {
         putResponseAttribute()

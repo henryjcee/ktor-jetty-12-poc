@@ -33,7 +33,6 @@ internal val closeJob: Runnable = Runnable {}
 
 class LoomDispatcher : CoroutineDispatcher() {
 
-//    Could probably pool these
     private val taskQueue = ArrayBlockingQueue<Runnable>(1)
 
     init {

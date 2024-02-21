@@ -40,9 +40,8 @@ dependencies {
     implementation("io.ktor:ktor-server-core-jvm")
 
     implementation("org.eclipse.jetty:jetty-server")
-    implementation("org.eclipse.jetty:jetty-alpn-java-server")
-    implementation("org.eclipse.jetty.http3:http3-server:11.0.20")
-    implementation("org.eclipse.jetty.http2:http2-server:11.0.20")
+    implementation("org.eclipse.jetty:jetty-alpn-java-server:12.0.6")
+    implementation("org.eclipse.jetty.http3:jetty-http3-server:12.0.6")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
 }

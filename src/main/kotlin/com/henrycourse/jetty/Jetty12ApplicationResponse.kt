@@ -12,6 +12,7 @@ import io.ktor.utils.io.ReaderJob
 import io.ktor.utils.io.close
 import io.ktor.utils.io.pool.DirectByteBufferPool
 import kotlinx.coroutines.CoroutineScope
+import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
 import java.nio.ByteBuffer
@@ -22,6 +23,7 @@ internal val emptyBuffer = ByteBuffer.allocateDirect(0)
 
 class Jetty12ApplicationResponse(
     call: PipelineCall,
+    private val request: Request,
     private val response: Response,
     private val managedByEngineHeaders: Set<String>,
     override val coroutineContext: CoroutineContext

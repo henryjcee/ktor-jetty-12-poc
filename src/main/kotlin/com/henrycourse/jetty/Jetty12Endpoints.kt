@@ -23,7 +23,6 @@ private val EndpointWriterCoroutineName = CoroutineName("jetty-upgrade-endpoint-
 
 private val JettyWebSocketPool = ByteBufferPool(JETTY_WEBSOCKET_POOL_SIZE, 4096)
 
-// Not presently using this and haven't really looked at it. I guess it's required for ALPN/websockets/HTTPX ?
 internal class Jetty12EndPointReader(
     endpoint: EndPoint,
     override val coroutineContext: CoroutineContext,
