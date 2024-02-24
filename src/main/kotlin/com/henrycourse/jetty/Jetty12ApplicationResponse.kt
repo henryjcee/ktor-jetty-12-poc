@@ -1,5 +1,6 @@
 package com.henrycourse.jetty
 
+import com.henrycourse.coroutines.LoomDispatcher
 import com.henrycourse.coroutines.launchLoomChannel
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
@@ -9,7 +10,9 @@ import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.ResponseHeaders
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.ReaderJob
+import io.ktor.utils.io.cancel
 import io.ktor.utils.io.close
+import io.ktor.utils.io.pool.ByteBufferPool
 import io.ktor.utils.io.pool.DirectByteBufferPool
 import kotlinx.coroutines.CoroutineScope
 import org.eclipse.jetty.server.Request
@@ -18,8 +21,8 @@ import org.eclipse.jetty.util.Callback
 import java.nio.ByteBuffer
 import kotlin.coroutines.CoroutineContext
 
-internal val bufferPool = DirectByteBufferPool()
-internal val emptyBuffer = ByteBuffer.allocateDirect(0)
+internal val bufferPool = ByteBufferPool()
+internal val emptyBuffer = ByteBuffer.allocate(0)
 
 class Jetty12ApplicationResponse(
     call: PipelineCall,
@@ -48,7 +51,27 @@ class Jetty12ApplicationResponse(
         override fun getEngineHeaderValues(name: String): List<String> = response.headers.getValuesList(name)
     }
 
-    override suspend fun respondUpgrade(upgrade: OutgoingContent.ProtocolUpgrade) = TODO("Not yet implemented")
+    override suspend fun respondUpgrade(upgrade: OutgoingContent.ProtocolUpgrade) {
+
+        val connection = request.connectionMetaData.connection
+        val endpoint = connection.endPoint
+        endpoint.idleTimeout = 60 * 1000
+
+        val websocketConnection = Jetty12WebsocketConnection(endpoint, coroutineContext)
+        response.write(true, emptyBuffer, Callback.from { endpoint.upgrade(websocketConnection) })
+
+        val upgradeJob = upgrade.upgrade(
+            websocketConnection.inputChannel,
+            websocketConnection.outputChannel,
+            LoomDispatcher(),
+            LoomDispatcher()
+        )
+
+        upgradeJob.invokeOnCompletion {
+            websocketConnection.inputChannel.cancel()
+            websocketConnection.outputChannel.close()
+        }
+    }
 
     private val responseJob: Lazy<ReaderJob> = lazy {
 
@@ -60,12 +83,14 @@ class Jetty12ApplicationResponse(
                 response.write(false, buffer.flip(), Callback.from { buffer.rewind() })
             }
 
-            response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
+            response.write(false, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
         }
     }
 
     override suspend fun respondFromBytes(bytes: ByteArray) {
+
         val buffer = bufferPool.borrow()
+
         response.write(true, buffer.put(bytes).flip(), Callback.from {
             responseJob.value.channel.close()
             bufferPool.recycle(buffer)

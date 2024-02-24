@@ -41,6 +41,12 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
 
 - No content response support
 - Implemented byte-array response support
+- 
+### 0.0.4
+
+- Websockets support (needs work)
+- HTTP3 support 
+
 
 ## Contributing
 

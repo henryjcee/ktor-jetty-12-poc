@@ -3,7 +3,6 @@ package com.henrycourse.jetty
 import io.ktor.server.engine.ConnectorType
 import io.ktor.server.engine.EngineSSLConnectorConfig
 import org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory
-import org.eclipse.jetty.http.HttpVersion
 import org.eclipse.jetty.http3.server.HTTP3ServerConnectionFactory
 import org.eclipse.jetty.http3.server.HTTP3ServerConnector
 import org.eclipse.jetty.server.HttpConfiguration
@@ -17,21 +16,27 @@ import java.nio.file.Paths
 
 internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase.Configuration) {
 
-    configuration.connectors.map { ktorConnector ->
+    configuration.connectors.forEach { ktorConnector ->
 
         val httpConfig = HttpConfiguration().apply {
             sendServerVersion = false
             sendDateHeader = false
-
-            if (ktorConnector.type == ConnectorType.HTTPS) {
-                addCustomizer(SecureRequestCustomizer())
-            }
         }
 
-        val connectionFactories = when (ktorConnector.type) {
-            ConnectorType.HTTP -> arrayOf(HttpConnectionFactory(httpConfig))
+        when (ktorConnector.type) {
+
+            ConnectorType.HTTP -> {
+
+                ServerConnector(this, HttpConnectionFactory(httpConfig)).apply {
+                    port = ktorConnector.port
+                    host = ktorConnector.host
+                    server.addConnector(this)
+                }
+            }
+
             ConnectorType.HTTPS -> {
 
+                httpConfig.addCustomizer(SecureRequestCustomizer())
                 val sslContextFactory = SslContextFactory.Server().apply {
 
                     keyStore = (ktorConnector as EngineSSLConnectorConfig).keyStore
@@ -67,29 +72,29 @@ internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase
                     )
                 }
 
-                val http3Connector = HTTP3ServerConnector(server, sslContextFactory, HTTP3ServerConnectionFactory(httpConfig))
-                http3Connector.getQuicConfiguration().setPemWorkDirectory(
-                    Paths.get(System.getProperty("java.io.tmpdir"))
-                )
+                val http = HttpConnectionFactory(httpConfig)
+                val ssl = SslConnectionFactory(sslContextFactory, http.protocol)
+                val alpn = ALPNServerConnectionFactory(http.protocol.toString()).apply {
+                    defaultProtocol = http.protocol
+                }
 
-                http3Connector.setPort(8444)
-                server.addConnector(http3Connector)
+                ServerConnector(server, 1, 1, ssl, alpn, http).apply {
+                    port = ktorConnector.port
+                    host = ktorConnector.host
+                    server.addConnector(this)
+                }
 
-                arrayOf(
-                    SslConnectionFactory(sslContextFactory, "alpn"),
-                    ALPNServerConnectionFactory().apply { defaultProtocol = HttpVersion.HTTP_1_1.asString() },
-                    HttpConnectionFactory(httpConfig),
-                )
+                HTTP3ServerConnector(server, sslContextFactory, HTTP3ServerConnectionFactory(httpConfig)).apply {
+                    quicConfiguration.pemWorkDirectory = Paths.get(System.getProperty("java.io.tmpdir"))
+                    port = ktorConnector.port
+                    host = ktorConnector.host
+                    server.addConnector(this)
+                }
             }
 
             else -> throw IllegalArgumentException(
                 "Connector type ${ktorConnector.type} is not supported by Jetty engine implementation"
             )
         }
-
-        ServerConnector(this, *connectionFactories).apply {
-            host = ktorConnector.host
-            port = ktorConnector.port
-        }
-    }.forEach { this.addConnector(it) }
+    }
 }
