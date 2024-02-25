@@ -15,6 +15,8 @@ import io.ktor.utils.io.close
 import io.ktor.utils.io.pool.ByteBufferPool
 import io.ktor.utils.io.pool.DirectByteBufferPool
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
@@ -55,22 +57,25 @@ class Jetty12ApplicationResponse(
 
         val connection = request.connectionMetaData.connection
         val endpoint = connection.endPoint
-        endpoint.idleTimeout = 60 * 1000
+        endpoint.idleTimeout = 6000 * 1000
 
         val websocketConnection = Jetty12WebsocketConnection(endpoint, coroutineContext)
         response.write(true, emptyBuffer, Callback.from { endpoint.upgrade(websocketConnection) })
 
+//        TODO: Check what needs to happen with contexts here
         val upgradeJob = upgrade.upgrade(
             websocketConnection.inputChannel,
             websocketConnection.outputChannel,
             LoomDispatcher(),
-            LoomDispatcher()
+            coroutineContext,
         )
 
         upgradeJob.invokeOnCompletion {
-            websocketConnection.inputChannel.cancel()
+            websocketConnection.inputChannel.close()
             websocketConnection.outputChannel.close()
         }
+
+        upgradeJob.join()
     }
 
     private val responseJob: Lazy<ReaderJob> = lazy {

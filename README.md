@@ -2,9 +2,9 @@
 
 I've spent long enough faffing around with reactive database drivers etc. and inspired
 by [this issue](https://youtrack.jetbrains.com/issue/KTOR-6734/Jetty-engine-Upgrade-Jetty-dependencies-to-the-latest-version-12)
-I have decided to build a POC that demonstrates virtual thread support in Ktor using Jetty 12. Most of this is code
+I have decided to build a POC that demonstrates **virtual thread support in Ktor using Jetty 12**. Most of this is code
 adapted from the existing Ktor Jetty engine but I've completely dropped servlet support which should be the fastest way
-to run Jetty.
+to run Jetty. **Websockets and HTTP3 seem to working** but I haven't tested either in anger.
 
 It should be pretty easy to use, add the dep and start a server like:
 
@@ -23,11 +23,11 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
 
 - Built on Ktor `3.0.0-beta1`. This makes it incompatible with `2.x.x` and also doesn't support the new kotlinx IO libs
   that are going to used in Kotlin 4.
-- This seems to work for most HTTP 1.1 requests that I've tried but the HTTPX/websocket support almost certainly doesn't
-  work.
+- This seems to work for most HTTP 1.1 requests that I've tried ~but the HTTPX/websocket support almost certainly doesn't
+  work~ and HTTP3 and websockets seem to be working.
 - The vthread dispatcher works but I have no idea if it's a good idea.
-- Java 21+ only
-- `initializeServer()` is a mess
+- Java 21+ only (of course).
+- I suspect there are problems in how concurrency is structured in the websockets logic.
 
 ## Changelog
 
@@ -41,12 +41,20 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
 
 - No content response support
 - Implemented byte-array response support
-- 
+-
+
 ### 0.0.4
 
 - Websockets support (needs work)
-- HTTP3 support 
+- HTTP3 support
 
+### 0.1.0
+
+- Switched dispatcher to unbounded task queue instead of a rendezvous. Not sure why I did that to start with as it (
+  obviously) leads to deadlocks
+- Added `loomAsync {}` to go with `loomLaunch {}`
+- TLS is working (see Ktor docs for config)
+- Websockets support has been worked on and I've got it running over http and https
 
 ## Contributing
 

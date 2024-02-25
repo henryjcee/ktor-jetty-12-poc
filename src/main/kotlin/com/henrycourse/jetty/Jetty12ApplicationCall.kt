@@ -1,6 +1,5 @@
 package com.henrycourse.jetty
 
-
 import io.ktor.server.application.Application
 import io.ktor.server.engine.BaseApplicationCall
 import io.ktor.server.engine.BaseApplicationRequest

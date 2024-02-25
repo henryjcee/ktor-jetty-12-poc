@@ -8,14 +8,16 @@ import io.ktor.utils.io.WriterScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
-// Not the prettiest thing in the in world but it works
+// Would be nice to get these working with launch {} / async {} but I've already spent too long on this
 fun CoroutineScope.loomLaunch(
     context: CoroutineContext = EmptyCoroutineContext,
     start: CoroutineStart = CoroutineStart.DEFAULT,
@@ -29,11 +31,22 @@ fun CoroutineScope.loomLaunch(
     }
 }
 
+fun <T> CoroutineScope.loomAsync(
+    context: CoroutineContext = EmptyCoroutineContext,
+    start: CoroutineStart = CoroutineStart.DEFAULT,
+    block: suspend CoroutineScope.() -> T
+): Deferred<T> {
+    val dispatcher = LoomDispatcher()
+    return async(context + dispatcher, start, block).apply {
+        dispatcher.close()
+    }
+}
+
 internal val closeJob: Runnable = Runnable {}
 
 class LoomDispatcher : CoroutineDispatcher() {
 
-    private val taskQueue = ArrayBlockingQueue<Runnable>(1)
+    private val taskQueue = LinkedBlockingQueue<Runnable>()
 
     init {
         Thread.ofVirtual().start {
@@ -57,6 +70,7 @@ class LoomDispatcher : CoroutineDispatcher() {
     }
 }
 
+// Replicas of the stuff from ktor-server-jetty
 class LoomChannelJob(
     private val delegate: Job,
     override val channel: ByteChannel

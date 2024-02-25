@@ -5,7 +5,7 @@ import io.ktor.util.cio.ChannelWriteException
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.close
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.eclipse.jetty.io.AbstractConnection
 import org.eclipse.jetty.io.EndPoint
@@ -16,7 +16,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-
+// TODO: Needs sensible error handling
 class Jetty12WebsocketConnection(
     private val endpoint: EndPoint,
     override val coroutineContext: CoroutineContext
@@ -29,12 +29,35 @@ class Jetty12WebsocketConnection(
     val inputChannel = ByteChannel(true)
     val outputChannel = ByteChannel(false)
 
+    private val channel = Channel<Boolean>(Channel.RENDEZVOUS)
+
     init {
 
-        fillInterested()
-
+//        Input job
         loomLaunch {
 
+//            TODO: Handle errors
+            while (true) {
+
+                fillInterested()
+                channel.receive()
+
+                inputBuffer.clear().flip()
+
+                val read = endpoint.fill(inputBuffer)
+
+                if (read > 0) {
+                    inputChannel.writeFully(inputBuffer)
+                } else if (read == -1) {
+                    endpoint.close()
+                }
+            }
+        }
+
+//        Output job
+        loomLaunch {
+
+//            TODO: Handle errors
             while (true) {
 
                 if (outputChannel.isClosedForRead) {
@@ -42,11 +65,7 @@ class Jetty12WebsocketConnection(
                 }
                 val outputBytes = outputChannel.readAvailable(outputBuffer.rewind())
 
-                if (outputBytes < 0 || !endpoint.isOpen) {
-                    outputChannel.close()
-                    bufferPool.recycle(outputBuffer)
-                    return@loomLaunch
-                } else {
+                if (outputBytes > -1) {
                     suspendCancellableCoroutine<Unit> {
                         endpoint.write(
                             object : Callback {
@@ -60,31 +79,22 @@ class Jetty12WebsocketConnection(
                             outputBuffer.flip()
                         )
                     }
+                } else {
+                    outputChannel.close()
+                    bufferPool.recycle(outputBuffer)
+                    return@loomLaunch
                 }
             }
         }
     }
 
+//    TODO: Handle errors
     override fun onFillInterestedFailed(cause: Throwable) {
-        endpoint.close()
-        inputChannel.close()
-        bufferPool.recycle(inputBuffer)
+        throw cause
     }
 
     override fun onFillable() {
-
-        if (endpoint.fill(inputBuffer.rewind().flip()) > -1) {
-            runBlocking {
-                inputChannel.writeFully(inputBuffer)
-            }
-            try {
-                fillInterested()
-            } catch (e: Throwable) {
-                onFillInterestedFailed(e)
-            }
-        } else {
-            endpoint.close()
-        }
+        channel.trySend(true)
     }
 
     override fun onUpgradeTo(buffer: ByteBuffer?) = TODO()
