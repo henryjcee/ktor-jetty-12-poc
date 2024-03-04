@@ -23,11 +23,26 @@ blocking OS threads and using libs that make use of `ThreadLocal`.
 
 - Built on Ktor `3.0.0-beta1`. This makes it incompatible with `2.x.x` and also doesn't support the new kotlinx IO libs
   that are going to used in Kotlin 4.
-- This seems to work for most HTTP 1.1 requests that I've tried ~but the HTTPX/websocket support almost certainly doesn't
+- This seems to work for most HTTP 1.1 requests that I've tried ~but the HTTPX/websocket support almost certainly
+  doesn't
   work~ and HTTP3 and websockets seem to be working.
 - The vthread dispatcher works but I have no idea if it's a good idea.
 - Java 21+ only (of course).
 - I suspect there are problems in how concurrency is structured in the websockets logic.
+
+## Benchmarks
+
+Tested by running a minimal Ktor server in a VM and a client on the same box but separate VM. Each run lasted for 10
+seconds and involved 100 clients firing HTTP 1.1 GET requests to the server as fast as possible. The first row hit an
+endpoint that calls delay(100), the second row hit an endpoint that calls Thread.sleep(100) and the third row hit an
+endpoint that calls a triply nested loop and does some maths to simulate a CPU-bound workload. The axis on the left is
+latency and the axis on the right is throughput.
+
+Performance is similar when calling the suspending and CPU-bound endpoints but a clear latency and throughput advantage
+for the Jetty 12-based engine when calling an endpoint that calls blocking code. I haven't got any charts for mem use
+but I've had a look with JMC and they look very similar.
+
+![Jetty vs Jetty 12 engine benchmark results](https://github.com/henryjcee/ktor-jetty-12-poc/blob/main/asserts/latency_benchmark_results.png?raw=true)
 
 ## Changelog
 
