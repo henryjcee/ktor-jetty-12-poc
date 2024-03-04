@@ -42,7 +42,7 @@ Performance is similar when calling the suspending and CPU-bound endpoints but a
 for the Jetty 12-based engine when calling an endpoint that calls blocking code. I haven't got any charts for mem use
 but I've had a look with JMC and they look very similar.
 
-![Jetty vs Jetty 12 engine benchmark results](https://github.com/henryjcee/ktor-jetty-12-poc/blob/main/asserts/latency_benchmark_results.png?raw=true)
+![Jetty vs Jetty 12 engine benchmark results](https://github.com/henryjcee/ktor-jetty-12-poc/blob/main/assets/latency_benchmark_results.png?raw=true)
 
 ## Changelog
 
