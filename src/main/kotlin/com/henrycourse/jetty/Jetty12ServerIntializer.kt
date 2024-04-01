@@ -4,7 +4,8 @@ import io.ktor.server.engine.ConnectorType
 import io.ktor.server.engine.EngineSSLConnectorConfig
 import org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory
 import org.eclipse.jetty.http3.server.HTTP3ServerConnectionFactory
-import org.eclipse.jetty.http3.server.HTTP3ServerConnector
+import org.eclipse.jetty.quic.server.QuicServerConnector
+import org.eclipse.jetty.quic.server.ServerQuicConfiguration
 import org.eclipse.jetty.server.HttpConfiguration
 import org.eclipse.jetty.server.HttpConnectionFactory
 import org.eclipse.jetty.server.SecureRequestCustomizer
@@ -13,6 +14,7 @@ import org.eclipse.jetty.server.ServerConnector
 import org.eclipse.jetty.server.SslConnectionFactory
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import java.nio.file.Paths
+
 
 internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase.Configuration) {
 
@@ -75,17 +77,20 @@ internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase
                 val http = HttpConnectionFactory(httpConfig)
                 val ssl = SslConnectionFactory(sslContextFactory, http.protocol)
                 val alpn = ALPNServerConnectionFactory(http.protocol.toString()).apply {
-                    defaultProtocol = http.protocol
+                    defaultProtocol = http.protocol.toString()
                 }
 
-                ServerConnector(server, 1, 1, ssl, alpn, http).apply {
+                ServerConnector(server, 8, 8, ssl, alpn, http).apply {
                     port = ktorConnector.port
                     host = ktorConnector.host
                     server.addConnector(this)
                 }
 
-                HTTP3ServerConnector(server, sslContextFactory, HTTP3ServerConnectionFactory(httpConfig)).apply {
-                    quicConfiguration.pemWorkDirectory = Paths.get(System.getProperty("java.io.tmpdir"))
+                val quicConfig = ServerQuicConfiguration(sslContextFactory, Paths.get(System.getProperty("java.io.tmpdir")))
+                val http3 = HTTP3ServerConnectionFactory(quicConfig, httpConfig)
+                http3.httP3Configuration.streamIdleTimeout = 60000
+
+                QuicServerConnector(server, quicConfig, http3).apply {
                     port = ktorConnector.port
                     host = ktorConnector.host
                     server.addConnector(this)
