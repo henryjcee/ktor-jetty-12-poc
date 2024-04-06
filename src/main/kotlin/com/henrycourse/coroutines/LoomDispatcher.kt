@@ -38,7 +38,9 @@ fun <T> CoroutineScope.loomAsync(
 ): Deferred<T> {
     val dispatcher = LoomDispatcher()
     return async(context + dispatcher, start, block).apply {
-        dispatcher.close()
+        invokeOnCompletion {
+            dispatcher.close()
+        }
     }
 }
 
@@ -70,7 +72,6 @@ class LoomDispatcher : CoroutineDispatcher() {
     }
 }
 
-// Replicas of the stuff from ktor-server-jetty
 class LoomChannelJob(
     private val delegate: Job,
     override val channel: ByteChannel

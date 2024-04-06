@@ -55,6 +55,7 @@ internal class Jetty12Handler(
                     callback.succeeded()
                 } catch (cancelled: CancellationException) {
                     Response.writeError(request, response, callback, HttpStatus.GONE_410, cancelled.message, cancelled)
+                    callback.failed(cancelled)
                 } catch (channelFailed: ChannelIOException) {
                     Response.writeError(
                         request,
@@ -64,6 +65,7 @@ internal class Jetty12Handler(
                         channelFailed.message,
                         channelFailed
                     )
+                    callback.failed(channelFailed)
                 } catch (error: Throwable) {
                     logError(call, error)
                     Response.writeError(
@@ -74,6 +76,7 @@ internal class Jetty12Handler(
                         error.message,
                         error
                     )
+                    callback.failed(error)
                 }
             }
 

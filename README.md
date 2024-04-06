@@ -71,6 +71,12 @@ but I've had a look with JMC and they look very similar.
 - TLS is working (see Ktor docs for config)
 - Websockets support has been worked on and I've got it running over http and https
 
+### 0.2.0
+
+- Bumped to Jetty 12.0.8
+- Fixed a showstopper bug that was causing all NoContent responses to deadlock the connection they were executed on
+- Fix connection timeout exceptions by defaulting to usinging the connection timeout by default.
+
 ## Contributing
 
 Please do contribute and I'm aiming to be responsive to any PRs as I am already addicted to calling blocking APIs

@@ -10,13 +10,9 @@ import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.ResponseHeaders
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.ReaderJob
-import io.ktor.utils.io.cancel
 import io.ktor.utils.io.close
 import io.ktor.utils.io.pool.ByteBufferPool
-import io.ktor.utils.io.pool.DirectByteBufferPool
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.util.Callback
@@ -36,8 +32,11 @@ class Jetty12ApplicationResponse(
 
     init {
         pipeline.intercept(ApplicationSendPipeline.Engine) {
-            responseJob.value.apply {
-                join()
+            if (responseJob.isInitialized()) {
+                responseJob.value.apply {
+                    channel.close()
+                    join()
+                }
             }
         }
     }
@@ -84,11 +83,11 @@ class Jetty12ApplicationResponse(
 
             val buffer = bufferPool.borrow()
 
-            while (channel.readAvailable(buffer) > 0) {
+            while (channel.readAvailable(buffer) > -1) {
                 response.write(false, buffer.flip(), Callback.from { buffer.rewind() })
             }
 
-            response.write(false, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
+            response.write(true, emptyBuffer, Callback.from { bufferPool.recycle(buffer) })
         }
     }
 
@@ -97,12 +96,12 @@ class Jetty12ApplicationResponse(
         val buffer = bufferPool.borrow()
 
         response.write(true, buffer.put(bytes).flip(), Callback.from {
-            responseJob.value.channel.close()
             bufferPool.recycle(buffer)
         })
     }
 
     override suspend fun respondNoContent(content: OutgoingContent.NoContent) {
+
         response.write(true, emptyBuffer, Callback.NOOP)
     }
 

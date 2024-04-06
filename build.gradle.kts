@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.henrycourse"
-version = "0.1.4"
+version = "0.2.0"
 
 publishing {
     publications {
@@ -35,7 +35,7 @@ repositories {
 dependencies {
 
     implementation(platform("io.ktor:ktor-bom:3.0.0-beta-1"))
-    implementation(platform("org.eclipse.jetty:jetty-bom:12.0.7"))
+    implementation(platform("org.eclipse.jetty:jetty-bom:12.0.8"))
 
     implementation("io.ktor:ktor-server-core-jvm")
 

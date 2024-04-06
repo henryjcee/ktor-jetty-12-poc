@@ -23,6 +23,7 @@ internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase
         val httpConfig = HttpConfiguration().apply {
             sendServerVersion = false
             sendDateHeader = false
+            idleTimeout = -1
         }
 
         when (ktorConnector.type) {
@@ -32,6 +33,7 @@ internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase
                 ServerConnector(this, HttpConnectionFactory(httpConfig)).apply {
                     port = ktorConnector.port
                     host = ktorConnector.host
+                    idleTimeout = configuration.idleTimeout
                     server.addConnector(this)
                 }
             }
@@ -80,19 +82,20 @@ internal fun Server.initializeServer(configuration: Jetty12ApplicationEngineBase
                     defaultProtocol = http.protocol.toString()
                 }
 
-                ServerConnector(server, 8, 8, ssl, alpn, http).apply {
+                ServerConnector(server, 0, 0, ssl, alpn, http).apply {
                     port = ktorConnector.port
                     host = ktorConnector.host
+                    idleTimeout = configuration.idleTimeout
                     server.addConnector(this)
                 }
 
                 val quicConfig = ServerQuicConfiguration(sslContextFactory, Paths.get(System.getProperty("java.io.tmpdir")))
                 val http3 = HTTP3ServerConnectionFactory(quicConfig, httpConfig)
-                http3.httP3Configuration.streamIdleTimeout = 60000
 
                 QuicServerConnector(server, quicConfig, http3).apply {
                     port = ktorConnector.port
                     host = ktorConnector.host
+                    idleTimeout = configuration.idleTimeout
                     server.addConnector(this)
                 }
             }

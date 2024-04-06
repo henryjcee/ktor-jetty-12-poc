@@ -6,6 +6,7 @@ import io.ktor.server.engine.*
 import kotlinx.coroutines.*
 import org.eclipse.jetty.server.*
 import org.eclipse.jetty.util.thread.QueuedThreadPool
+import org.eclipse.jetty.util.thread.ThreadPool
 import java.util.concurrent.Executors
 import kotlin.time.*
 import kotlin.time.Duration.Companion.seconds
@@ -32,9 +33,16 @@ open class Jetty12ApplicationEngineBase(
         var configureServer: Server.() -> Unit = {}
 
         /**
-         * The duration of time that a connection can be idle before the connector takes action to close the connection.
+         * The thread pool used for Jetty I/O.
+         *
+         * See https://eclipse.dev/jetty/documentation/jetty-12/programming-guide/index.html#pg-arch-threads-thread-pool-virtual-threads
+         * for more.
          */
-        var idleTimeout: Duration = 30.seconds
+        var threadPool: ThreadPool = QueuedThreadPool().apply {
+            virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor()
+        }
+
+        var idleTimeout: Long = -1
     }
 
     private var cancellationDeferred: CompletableJob? = null
@@ -42,7 +50,7 @@ open class Jetty12ApplicationEngineBase(
     /**
      * Jetty server instance being configuring and starting
      */
-    protected val server: Server = Server().apply {
+    protected val server: Server = Server(configuration.threadPool).apply {
         configuration.configureServer(this)
         initializeServer(configuration)
     }
