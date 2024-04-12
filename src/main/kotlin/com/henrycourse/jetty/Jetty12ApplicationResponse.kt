@@ -10,6 +10,7 @@ import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.ResponseHeaders
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.ReaderJob
+import io.ktor.utils.io.bits.buffer
 import io.ktor.utils.io.close
 import io.ktor.utils.io.pool.ByteBufferPool
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +20,7 @@ import org.eclipse.jetty.util.Callback
 import java.nio.ByteBuffer
 import kotlin.coroutines.CoroutineContext
 
-internal val bufferPool = ByteBufferPool()
+internal val bufferPool = ByteBufferPool(bufferSize = 8096)
 internal val emptyBuffer = ByteBuffer.allocate(0)
 
 class Jetty12ApplicationResponse(
